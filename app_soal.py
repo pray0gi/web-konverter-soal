@@ -7,6 +7,7 @@ import re
 import os
 import shutil
 from docx.oxml.ns import qn
+import io # <-- Tambahkan ini untuk memanipulasi file di memori
 
 # --- FUNGSI ENGINE PARSER ---
 def ekstrak_gambar_dari_paragraf(paragraph, doc, folder_output, nama_file_basis):
@@ -77,8 +78,56 @@ def proses_konversi(file_upload, folder_gambar="gambar_soal"):
 # --- ANTARMUKA STREAMLIT ---
 st.set_page_config(page_title="Konverter Soal Ujian", layout="wide")
 
-st.title("📝 Web Konverter Soal Word ke Excel")
-st.markdown("Aplikasi untuk mengubah format soal ujian `.docx` menjadi `.xlsx` lengkap dengan ekstraksi gambarnya.")
+# --- MENU SIDEBAR: DOWNLOAD TEMPLATE ---
+with st.sidebar:
+    st.header("📄 Format Standar Soal")
+    st.markdown("Agar aplikasi dapat membaca soal dengan benar, pastikan Anda menggunakan template Word yang telah disediakan.")
+    
+    # Fungsi untuk membuat file Word di memori (BytesIO)
+    def buat_template_memori():
+        doc = docx.Document()
+        doc.add_heading('Template Format Soal Ujian', 0)
+        doc.add_paragraph('Petunjuk: Gunakan format di bawah ini dengan presisi. Jangan ubah pola penomoran (1., 2.) atau format huruf opsi (A., B.).')
+        
+        doc.add_paragraph('1. Tulis Soal disini')
+        doc.add_paragraph('A. jawabanA')
+        doc.add_paragraph('B. jawabanB')
+        doc.add_paragraph('C. jawabanC')
+        doc.add_paragraph('D. jawabanD')
+        doc.add_paragraph('E. jawabanE')
+        doc.add_paragraph('Kunci: A\n')
+        
+        doc.add_paragraph('2. Tulis Soal disini')
+        doc.add_paragraph('A. jawabanA')
+        doc.add_paragraph('B. jawabanB')
+        doc.add_paragraph('C. jawabanC')
+        doc.add_paragraph('D. jawabanD')
+        doc.add_paragraph('E. jawabanE')
+        doc.add_paragraph('Kunci: B\n')
+
+        doc.add_paragraph('3. Dst')
+        
+        # Menyimpan ke memori (buffer) bukan ke harddisk
+        buffer = io.BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+        return buffer
+
+    file_template = buat_template_memori()
+    
+    # Tombol Download
+    st.download_button(
+        label="⬇️ Unduh Template Word (.docx)",
+        data=file_template,
+        file_name="Template_Soal_Ujian.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        type="primary",
+        use_container_width=True
+    )
+    st.write("---")
+
+st.title("📝 Web Konverter Soal Word ke Form")
+st.markdown("Aplikasi untuk mengubah format soal ujian `.docx` menjadi `Google Form` lengkap dengan ekstraksi gambarnya.")
 
 file_word = st.file_uploader("Unggah File Word (.docx)", type=["docx"])
 
