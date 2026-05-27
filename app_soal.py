@@ -1,3 +1,4 @@
+import requests # Tambahkan ini di paling atas bersama import lainnya
 import streamlit as st
 import docx
 import pandas as pd
@@ -81,35 +82,33 @@ st.markdown("Aplikasi untuk mengubah format soal ujian `.docx` menjadi `.xlsx` l
 file_word = st.file_uploader("Unggah File Word (.docx)", type=["docx"])
 
 if file_word is not None:
-    if st.button("🚀 Mulai Konversi"):
-        with st.spinner("Sedang memproses dokumen dan mengekstrak gambar..."):
-            # Setup folder sementara
-            folder_temp = "temp_gambar_soal"
-            if os.path.exists(folder_temp):
-                shutil.rmtree(folder_temp)
+    st.write("") 
+    tombol_konversi = st.button("🚀 BUAT GOOGLE FORM SEKARANG", type="primary", use_container_width=True)
+    
+    if tombol_konversi:
+        with st.spinner("Sedang membaca dokumen dan mengirim ke Google..."):
+            # 1. Ekstrak Word menjadi Dataframe seperti biasa
+            df_hasil = proses_konversi(file_word, "temp_gambar_soal")
+            
+            # 2. Ubah Dataframe menjadi format JSON (Dictionary Python)
+            data_json = df_hasil.to_dict(orient='records')
+            
+            # 3. Kirim ke URL GAS Web App Anda
+            URL_GAS = "https://script.google.com/macros/s/AKfycbxRUyFNd37oae91glDYewdP3-TFggDysiG1nSNOGnkXbGot0LHI9TmhSe8QKgLk8_Fgpw/exec"
+            
+            try:
+                # Mengirim POST request
+                respon = requests.post(URL_GAS, json=data_json)
+                hasil_api = respon.json()
                 
-            # Proses Konversi
-            df_hasil = proses_konversi(file_word, folder_temp)
-            file_excel = "Bank_Soal_Hasil.xlsx"
-            df_hasil.to_excel(file_excel, index=False)
-            
-            # Membuat file ZIP berisi Excel dan Folder Gambar
-            shutil.make_archive("Hasil_Konversi_Soal", 'zip', root_dir='.', base_dir=folder_temp)
-            import zipfile
-            with zipfile.ZipFile("Hasil_Konversi_Soal.zip", 'a') as zipf:
-                zipf.write(file_excel)
-                
-            st.success(f"Konversi Berhasil! {len(df_hasil)} soal telah diproses.")
-            
-            # Tampilkan Preview Data
-            st.subheader("Pratinjau Hasil:")
-            st.dataframe(df_hasil, use_container_width=True)
-            
-            # Tombol Download ZIP
-            with open("Hasil_Konversi_Soal.zip", "rb") as f:
-                st.download_button(
-                    label="📥 Unduh Hasil Konversi (.zip)",
-                    data=f,
-                    file_name="Hasil_Konversi_Soal.zip",
-                    mime="application/zip"
-                )
+                if hasil_api.get("status") == "sukses":
+                    st.success("🎉 Berhasil! Google Form Anda sudah siap.")
+                    
+                    # Menampilkan Link ke Pengguna
+                    st.markdown(f"**🔗 [Klik di sini untuk Edit Form]({hasil_api['edit_url']})**")
+                    st.markdown(f"**👀 [Klik di sini untuk Lihat Tampilan Form]({hasil_api['publish_url']})**")
+                else:
+                    st.error(f"Terjadi kesalahan di server Google: {hasil_api.get('pesan')}")
+                    
+            except Exception as e:
+                st.error(f"Gagal menghubungi server: {e}")
