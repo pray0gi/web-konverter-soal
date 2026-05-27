@@ -1,4 +1,5 @@
 import requests # Tambahkan ini di paling atas bersama import lainnya
+import urllib.parse # Tambahkan ini di deretan import atas
 import streamlit as st
 import docx
 import pandas as pd
@@ -82,16 +83,15 @@ st.markdown("Aplikasi untuk mengubah format soal ujian `.docx` menjadi `.xlsx` l
 file_word = st.file_uploader("Unggah File Word (.docx)", type=["docx"])
 
 if file_word is not None:
-    st.write("---") # Garis pemisah agar rapi
+    st.write("---") 
     
-    # 1. Tambahkan menu input poin di sini
-    poin_soal = st.number_input(
-        "Poin per soal (jika jawaban benar):", 
-        min_value=1, 
-        max_value=100, 
-        value=10, 
-        step=1
-    )
+    # Membuat 2 kolom sejajar untuk input
+    col1, col2 = st.columns(2)
+    with col1:
+        nama_form = st.text_input("Nama File Form:", "Soal Ujian Teknik Ketenagalistrikan")
+        poin_soal = st.number_input("Poin per soal benar:", min_value=1, max_value=100, value=10)
+    with col2:
+        nomor_wa = st.text_input("Nomor WA Tujuan (Opsional):", placeholder="Contoh: 081234567890")
     
     st.write("") 
     tombol_konversi = st.button("🚀 BUAT GOOGLE FORM SEKARANG", type="primary", use_container_width=True)
@@ -101,23 +101,46 @@ if file_word is not None:
             df_hasil = proses_konversi(file_word, "temp_gambar_soal")
             data_json = df_hasil.to_dict(orient='records')
             
-            # 2. Bungkus data poin dan data soal menjadi satu Payload baru
+            # Menambahkan nama_form ke dalam payload
             payload_api = {
                 "poin": poin_soal,
+                "nama_form": nama_form,
                 "soal": data_json
             }
             
-            URL_GAS = "https://script.google.com/macros/s/AKfycbxRUyFNd37oae91glDYewdP3-TFggDysiG1nSNOGnkXbGot0LHI9TmhSe8QKgLk8_Fgpw/exec" # Pastikan URL tidak berubah
+            URL_GAS = "https://script.google.com/macros/s/AKfycbxRUyFNd37oae91glDYewdP3-TFggDysiG1nSNOGnkXbGot0LHI9TmhSe8QKgLk8_Fgpw/exec"
             
             try:
-                # 3. Kirim payload_api (bukan data_json lagi)
                 respon = requests.post(URL_GAS, json=payload_api)
                 hasil_api = respon.json()
                 
                 if hasil_api.get("status") == "sukses":
-                    st.success("🎉 Berhasil! Google Form Anda sudah siap.")
-                    st.markdown(f"**🔗 [Klik di sini untuk Edit Form]({hasil_api['edit_url']})**")
-                    st.markdown(f"**👀 [Klik di sini untuk Lihat Tampilan Form]({hasil_api['publish_url']})**")
+                    st.success(f"🎉 Berhasil! Form '{nama_form}' sudah siap.")
+                    
+                    link_edit = hasil_api['edit_url']
+                    link_siswa = hasil_api['publish_url']
+                    
+                    st.markdown(f"**🔗 [Klik di sini untuk Edit Form]({link_edit})**")
+                    st.markdown(f"**👀 [Klik di sini untuk Lihat Tampilan Form]({link_siswa})**")
+                    
+                    # LOGIKA PENGIRIMAN WHATSAPP
+                    if nomor_wa:
+                        pesan_wa = f"Halo! Google Form untuk *{nama_form}* sudah selesai dibuat.\n\n*Link Edit (Guru):*\n{link_edit}\n\n*Link Kuis (Siswa):*\n{link_siswa}"
+                        
+                        # Jika bot WhatsApp yang Anda jalankan dengan PM2 memiliki endpoint API masuk, 
+                        # Anda bisa menghilangkan tanda pagar di bawah ini dan menyesuaikan URL-nya:
+                        # requests.post("http://localhost:3000/api/sendText", json={"chatId": f"{nomor_wa}@c.us", "text": pesan_wa})
+                        
+                        # Alternatif instan: Generate link Click-to-Chat WhatsApp Web
+                        if nomor_wa.startswith("08"):
+                            nomor_wa = "628" + nomor_wa[2:] # Format ke 62
+                        
+                        pesan_terencode = urllib.parse.quote(pesan_wa)
+                        link_wa_web = f"https://wa.me/{nomor_wa}?text={pesan_terencode}"
+                        
+                        st.info("Form berhasil dibuat. Klik tombol di bawah ini untuk meneruskan link via WhatsApp.")
+                        st.markdown(f"**📱 [KIRIM LINK VIA WHATSAPP]({link_wa_web})**")
+                        
                 else:
                     st.error(f"Terjadi kesalahan di server Google: {hasil_api.get('pesan')}")
                     
