@@ -82,29 +82,40 @@ st.markdown("Aplikasi untuk mengubah format soal ujian `.docx` menjadi `.xlsx` l
 file_word = st.file_uploader("Unggah File Word (.docx)", type=["docx"])
 
 if file_word is not None:
+    st.write("---") # Garis pemisah agar rapi
+    
+    # 1. Tambahkan menu input poin di sini
+    poin_soal = st.number_input(
+        "Poin per soal (jika jawaban benar):", 
+        min_value=1, 
+        max_value=100, 
+        value=10, 
+        step=1
+    )
+    
     st.write("") 
     tombol_konversi = st.button("🚀 BUAT GOOGLE FORM SEKARANG", type="primary", use_container_width=True)
     
     if tombol_konversi:
         with st.spinner("Sedang membaca dokumen dan mengirim ke Google..."):
-            # 1. Ekstrak Word menjadi Dataframe seperti biasa
             df_hasil = proses_konversi(file_word, "temp_gambar_soal")
-            
-            # 2. Ubah Dataframe menjadi format JSON (Dictionary Python)
             data_json = df_hasil.to_dict(orient='records')
             
-            # 3. Kirim ke URL GAS Web App Anda
-            URL_GAS = "https://script.google.com/macros/s/AKfycbxRUyFNd37oae91glDYewdP3-TFggDysiG1nSNOGnkXbGot0LHI9TmhSe8QKgLk8_Fgpw/exec"
+            # 2. Bungkus data poin dan data soal menjadi satu Payload baru
+            payload_api = {
+                "poin": poin_soal,
+                "soal": data_json
+            }
+            
+            URL_GAS = "https://script.google.com/macros/s/AKfycbxRUyFNd37oae91glDYewdP3-TFggDysiG1nSNOGnkXbGot0LHI9TmhSe8QKgLk8_Fgpw/exec" # Pastikan URL tidak berubah
             
             try:
-                # Mengirim POST request
-                respon = requests.post(URL_GAS, json=data_json)
+                # 3. Kirim payload_api (bukan data_json lagi)
+                respon = requests.post(URL_GAS, json=payload_api)
                 hasil_api = respon.json()
                 
                 if hasil_api.get("status") == "sukses":
                     st.success("🎉 Berhasil! Google Form Anda sudah siap.")
-                    
-                    # Menampilkan Link ke Pengguna
                     st.markdown(f"**🔗 [Klik di sini untuk Edit Form]({hasil_api['edit_url']})**")
                     st.markdown(f"**👀 [Klik di sini untuk Lihat Tampilan Form]({hasil_api['publish_url']})**")
                 else:
